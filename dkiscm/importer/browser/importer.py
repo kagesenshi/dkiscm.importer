@@ -6,12 +6,24 @@ from dkiscm.importer.interfaces import IProductSpecific
 import csv
 import z3c.form.button
 from dkiscm.importer import MessageFactory as _
-from cStringIO import StringIO
+from StringIO import StringIO
 from plone.dexterity.utils import createContentInContainer
 from zope.component.hooks import getSite
 from Products.statusmessages.interfaces import IStatusMessage
 
 grok.templatedir('templates')
+
+def unicode_csv_reader(unicode_csv_data, dialect=csv.excel, **kwargs):
+    # csv.py doesn't do Unicode; encode temporarily as UTF-8:
+    csv_reader = csv.reader(utf_8_encoder(unicode_csv_data),
+                            dialect=dialect, **kwargs)
+    for row in csv_reader:
+        # decode UTF-8 back to Unicode, cell by cell:
+        yield [unicode(cell, 'utf-8') for cell in row]
+
+def utf_8_encoder(unicode_csv_data):
+    for line in unicode_csv_data:
+        yield line.encode('utf-8')
 
 class IUploadFormSchema(form.Schema):
 
@@ -34,9 +46,8 @@ class UploadForm(form.SchemaForm):
             self.status = self.formErrorsMessage
             return
 
-        f = formdata['import_file'].data
-        reader = csv.reader(StringIO(f))
-        for l in reader:
+        f = formdata['import_file'].data.decode('utf-8')
+        for l in unicode_csv_reader(StringIO(f)):
             try:
                 linenum = int(l[0])
             except:
@@ -98,7 +109,10 @@ class UploadForm(form.SchemaForm):
 
     def _cluster_title_to_id(self, title):
         mapping = {
-            'creative multimedia': 'creative-multimedia'
+            'creative multimedia': 'creative-multimedia',
+            'system design & development': 'system-design-development',
+            'information technology': 'information-technology',
+            'shared services & outsourcing': 'shared-services-outsourcing'
         }
         key = title.lower().strip()
         if key not in mapping:
