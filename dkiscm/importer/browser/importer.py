@@ -49,7 +49,12 @@ class UploadForm(form.SchemaForm):
         self._create(datadict)
 
     def _create(self, data):
-        container = self._find_container(data['industry_cluster'], data['job_grouping'])
+        container = self._find_container(
+                data['industry_cluster'], 
+                data['industry_cluster_title'],
+                data['job_grouping'],
+                data['job_grouping_title'],
+        )
         obj = createContentInContainer(container, 'dkiscm.jobmatrix.job',
                                         title=data['title'],
                                         job_code=data['job_code'])
@@ -61,16 +66,43 @@ class UploadForm(form.SchemaForm):
                 'softskills_competency']:
             setattr(obj, k, data[k])
 
-    def _find_container(self, industry_cluster, job_grouping):
+        obj.reindexObject()
+
+    def _find_container(self, industry_cluster, industry_cluster_title,
+                        job_grouping, job_grouping_title):
         site = getSite()
-        return site[industry_cluster]
+        if not 'cluster' in site.keys():
+            site.invokeFactory(type_name='Folder', id='cluster')
+            obj = site['cluster']
+            obj.setTitle('Clusters')
+            obj.reindexObject()
+        repo = site['cluster']
+        if not repo.has_key(industry_cluster):
+            obj = createContentInContainer(repo, 
+                    'dkiscm.jobmatrix.industrycluster',
+                    title=industry_cluster
+            )
+            obj.setTitle(industry_cluster_title)
+            obj.reindexObject()
+        cluster = repo[industry_cluster]
+
+        if not cluster.has_key(job_grouping):
+            obj = createContentInContainer(cluster,
+                    'dkiscm.jobmatrix.jobgroup',
+                    title=job_grouping
+            )
+            obj.setTitle(job_grouping_title)
+            obj.reindexObject()
+        container = cluster[job_grouping]
+        return container
 
     def _cluster_title_to_id(self, title):
         mapping = {
             'creative multimedia': 'creative-multimedia'
         }
         key = title.lower().strip()
-
+        if key not in mapping:
+            raise Exception('Unable to find industry cluster mapping for %s' % key)
         return mapping.get(key, '')
 
     def _jobgrouping_title_to_id(self, title):
@@ -90,27 +122,35 @@ class UploadForm(form.SchemaForm):
             'it management': 'it-management',
             'contact centre':'contact-centre',
             'finance & accounting':'finance-accounting',
-            'human resources':'human-resources'
+            'human resources':'human-resources',
+            'creative content management': 'creative-content-management'
         }
         key = title.lower().strip()
+        if key not in mapping:
+            raise Exception('Unable to find job group mapping for %s' % key)
         return mapping.get(key, '')
 
     def _education_title_to_id(self, title):
         mapping = {
             'spm':'spm',
             'certificate':'certificate',
+            'diploma': 'diploma',
             "bachelor's":'bachelor',
             "master's":'master'
         }
         key = title.lower().strip()
+        if key not in mapping:
+            raise Exception('Unable to find education id mapping for %s' % key)
         return mapping.get(key, '')
 
             
     def _extract(self, data):
         data = [i.strip() for i in data]
         datadict = {
+            'industry_cluster_title': data[1],
             'industry_cluster': self._cluster_title_to_id(data[1]),
             'job_code': data[2],
+            'job_grouping_title': data[3],
             'job_grouping': self._jobgrouping_title_to_id(data[3]),
             'title': data[4],
             'education': self._education_title_to_id(data[5]),
