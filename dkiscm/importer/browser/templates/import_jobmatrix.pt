@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      metal:use-macro="context/main_template/macros/master">
+<head>
+</head>
+<body>
+    <div metal:fill-slot="content-title">
+        <h3>Upload CSV to import jobmatrix</h3>
+    </div>
+    <div metal:fill-slot="content-core">
+        <form method="POST">
+            <input type="file" name="file"/><input type="submit" value="Submit"/>
+        </form>
+  </div>
+</body>
+</html>
