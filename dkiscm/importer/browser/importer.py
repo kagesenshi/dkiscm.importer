@@ -10,6 +10,7 @@ from StringIO import StringIO
 from plone.dexterity.utils import createContentInContainer
 from zope.component.hooks import getSite
 from Products.statusmessages.interfaces import IStatusMessage
+import re
 
 grok.templatedir('templates')
 
@@ -24,6 +25,26 @@ def unicode_csv_reader(unicode_csv_data, dialect=csv.excel, **kwargs):
 def utf_8_encoder(unicode_csv_data):
     for line in unicode_csv_data:
         yield line.encode('utf-8')
+
+def _extract_salary(orig_text):
+    text = orig_text.replace(',','').replace(' ','').upper().strip()
+
+    if not text:
+        return ''
+
+    match = re.match('RM(\d+)-RM(\d+)', text)
+    if match:
+        return '-'.join(match.groups())
+
+    match = re.match('.*?RM(\d+)$', text)
+    if match:
+        return '< %s' % match.groups()[0]
+
+    match = re.match('^RM(\d+).*$', text)
+    if match:
+        return '> %s' % match.groups()[0]
+
+    raise Exception('Unable to parse salary "%s"' % orig_text)
 
 class IUploadFormSchema(form.Schema):
 
@@ -52,6 +73,11 @@ class UploadForm(form.SchemaForm):
                 linenum = int(l[0])
             except:
                 continue
+
+            # Ignore item with blank jobcode
+            if not l[2] or (l[2].upper().strip() == 'NEW'):
+                continue
+
             self._import(l)
         IStatusMessage(self.request).addStatusMessage(_("Objects imported"))
 
@@ -69,8 +95,12 @@ class UploadForm(form.SchemaForm):
         obj = createContentInContainer(container, 'dkiscm.jobmatrix.job',
                                         title=data['title'],
                                         job_code=data['job_code'])
+
+        obj.setDescription(data['description'])
+    
         for k in ['job_code', 'education', 'education_description',
-                    'suitable_for_entry']:
+                  'similar_job_titles','professional_certification',
+                  'suitable_for_entry']:
             setattr(obj, k, data[k])
 
         for k in ['industry_certification', 'salary_range', 'skills_competency',
@@ -136,7 +166,7 @@ class UploadForm(form.SchemaForm):
             'it management': 'it-management',
             'contact centre':'contact-centre',
             'finance & accounting':'finance-accounting',
-            'human resources':'human-resources',
+            'human resource':'human-resource',
             'creative content management': 'creative-content-management'
         }
         key = title.lower().strip()
@@ -170,7 +200,9 @@ class UploadForm(form.SchemaForm):
             'education': self._education_title_to_id(data[5]),
             'education_description': data[6],
             'description': data[7],
-            'similar_job_title': data[8],
+            'similar_job_titles': [v.strip() for v in data[8].split(',') if v.strip()],
+            'professional_certification': [v.strip() for v in (
+                data[14].split(',')) if v.strip()],
             'industry_certification': [{
                 'entry': data[14],
                 'intermediate': '',
@@ -179,11 +211,11 @@ class UploadForm(form.SchemaForm):
                 'master':''
             }],
             'salary_range': [{
-                'entry': data[15],
-                'intermediate': data[16],
-                'senior': data[17],
-                'advanced': data[18],
-                'master': data[19],
+                'entry': _extract_salary(data[15]),
+                'intermediate': _extract_salary(data[16]),
+                'senior': _extract_salary(data[17]),
+                'advanced': _extract_salary(data[18]),
+                'master': _extract_salary(data[19]),
             }],
             'skills_competency': [],
             'softskills_competency': []
@@ -197,26 +229,27 @@ class UploadForm(form.SchemaForm):
                 data[64:75],
                 data[75:86],
                 data[86:97],
-                data[97:108]
+                data[97:108],
+                data[108:119]
             ]:
             skill = self._extract_skill(s)
             if skill:
                 datadict['skills_competency'].append(skill)
 
         for s in [
-                data[108:114],
-                data[114:120],
-                data[120:126],
-                data[126:132],
-                data[132:138],
-                data[138:144]
+                data[119:125],
+                data[125:131],
+                data[131:137],
+                data[137:143],
+                data[143:149],
+                data[149:155]
             ]:
             skill = self._extract_softskill(s)
             if skill:
                 datadict['softskills_competency'].append(skill)
 
         datadict['suitable_for_entry'] = (
-                True if data[144].lower() == 'y' else False
+            True if data[155].lower() == 'y' else False
         )
 
         return datadict
