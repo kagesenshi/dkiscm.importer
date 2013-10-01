@@ -211,11 +211,11 @@ class UploadForm(form.SchemaForm):
                 'master':''
             }],
             'salary_range': [{
-                'entry': _extract_salary(data[15]),
-                'intermediate': _extract_salary(data[16]),
-                'senior': _extract_salary(data[17]),
-                'advanced': _extract_salary(data[18]),
-                'master': _extract_salary(data[19]),
+                'entry': data[15].strip(),
+                'intermediate': data[16].strip(),
+                'senior': data[17].strip(),
+                'advanced': data[18].strip(),
+                'master': data[19].strip(),
             }],
             'skills_competency': [],
             'softskills_competency': []
@@ -237,20 +237,33 @@ class UploadForm(form.SchemaForm):
                 datadict['skills_competency'].append(skill)
 
         for s in [
-                data[119:125],
-                data[125:131],
-                data[131:137],
-                data[137:143],
-                data[143:149],
-                data[149:155]
+                data[119:130],
+                data[130:141],
+                data[141:152],
+                data[152:163],
+                data[163:174],
+                data[174:185]
             ]:
             skill = self._extract_softskill(s)
             if skill:
                 datadict['softskills_competency'].append(skill)
 
         datadict['suitable_for_entry'] = (
-            True if data[155].lower() == 'y' else False
+            True if data[185].lower() == 'y' else False
         )
+
+        datadict['job_demand'] = 0
+        try:
+            datadict['job_demand'] = int(data[186])
+        except:
+            pass
+
+        datadict['job_demand_synovate2013'] = 0
+        try:
+            datadict['job_demand_synovate2013'] = int(data[187])
+        except:
+            pass
+
 
         return datadict
 
@@ -264,16 +277,21 @@ class UploadForm(form.SchemaForm):
         if not have_val:
             return None
 
-        is_required = True if data[2].lower().strip() == 'r' else False
+        def _get_required(val):
+            return True if val.lower().strip() == 'r' else False
 
         return {
                 'skill':data[0],
                 'entry':data[1],
+                'entry_required': _get_required(data[2]),
                 'intermediate':data[3],
+                'intermediate_required': _get_required(data[4]),
                 'senior':data[5],
+                'senior_required': _get_required(data[6]),
                 'advanced':data[7],
+                'advanced_required': _get_required(data[8]),
                 'master':data[9],
-                'is_required': is_required
+                'master_required': _get_required(data[10])
         }
 
     def _extract_softskill(self, data):
@@ -286,12 +304,24 @@ class UploadForm(form.SchemaForm):
         if not have_val:
             return None
 
+        def _get_weight(val):
+            if not val.strip():
+                return None
+            try:
+                return int(val.strip())
+            except:
+                return None
+
         return {
                 'skill':data[0],
-                'col1':data[1],
-                'col2':data[2],
-                'col3':data[3],
-                'col4':data[4],
-                'col5':data[5],
-                'is_required': False
+                'entry':data[1],
+                'entry_weight': _get_weight(data[2]),
+                'intermediate': data[3],
+                'intermediate_weight': _get_weight(data[4]),
+                'senior':data[5],
+                'senior_weight': _get_weight(data[6]),
+                'advanced':data[7],
+                'advanced_weight': _get_weight(data[8]),
+                'master':data[9],
+                'master_weight': _get_weight(data[10]),
         }
